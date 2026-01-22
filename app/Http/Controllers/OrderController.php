@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\Customer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
@@ -24,12 +23,12 @@ class OrderController extends Controller
         // Since route is public, we need to manually check for token
         $customer = null;
         $customerId = null;
-        
+
         // Check if Authorization header is present
         $authHeader = $request->header('Authorization');
         if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
             $token = str_replace('Bearer ', '', $authHeader);
-            
+
             // Find the token in personal_access_tokens table
             $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
             if ($tokenModel) {
@@ -40,13 +39,13 @@ class OrderController extends Controller
                 }
             }
         }
-        
+
         // Fallback to $request->user() if available (in case route has auth middleware)
-        if (!$customer) {
+        if (! $customer) {
             $customer = $request->user();
             $customerId = $customer ? $customer->id : null;
         }
-        
+
         // Log incoming request for debugging
         Log::info('Order creation request received', [
             'items_count' => count($request->input('items', [])),
@@ -57,7 +56,7 @@ class OrderController extends Controller
             'has_customer' => $customerId ? true : false,
             'customer_id' => $customerId,
         ]);
-        
+
         $validator = Validator::make($request->all(), [
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer|exists:products,id',
@@ -79,7 +78,7 @@ class OrderController extends Controller
                 'errors' => $validator->errors()->toArray(),
                 'request_data' => $request->all(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -106,25 +105,27 @@ class OrderController extends Controller
 
             foreach ($request->items as $item) {
                 $product = Product::find($item['product_id']);
-                
-                if (!$product) {
+
+                if (! $product) {
                     DB::rollBack();
+
                     return response()->json([
                         'success' => false,
                         'message' => "Product with ID {$item['product_id']} not found",
                     ], 404);
                 }
 
-                if (!$product->is_active) {
+                if (! $product->is_active) {
                     DB::rollBack();
+
                     return response()->json([
                         'success' => false,
                         'message' => "Product {$product->title} is not available",
                     ], 400);
                 }
 
-                $quantity = (int)$item['quantity'];
-                $price = (float)$product->price;
+                $quantity = (int) $item['quantity'];
+                $price = (float) $product->price;
                 $itemSubtotal = $price * $quantity;
                 $calculatedSubtotal += $itemSubtotal;
 
@@ -212,7 +213,7 @@ class OrderController extends Controller
         try {
             $order = Order::with(['items.product', 'items.download', 'customer'])->find($id);
 
-            if (!$order) {
+            if (! $order) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order not found',
@@ -220,8 +221,23 @@ class OrderController extends Controller
             }
 
             // Check access control
-            $user = $request->user();
-            
+            $user = null;
+
+            // Try to get authenticated user from token (since this route is public)
+            $authHeader = $request->header('Authorization');
+            if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+                $token = str_replace('Bearer ', '', $authHeader);
+                $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+                if ($tokenModel) {
+                    $user = $tokenModel->tokenable;
+                }
+            }
+
+            // Fallback to $request->user() if available (in case route has auth middleware)
+            if (! $user) {
+                $user = $request->user();
+            }
+
             // Admin can see all orders
             if ($user && ($user instanceof \App\Models\Admin || $user instanceof \App\Models\Personnel)) {
                 return response()->json([
@@ -241,7 +257,7 @@ class OrderController extends Controller
             } else {
                 // Guest can only see orders by email
                 $guestEmail = $request->input('guest_email');
-                if (!$guestEmail || !$order->belongsToGuest($guestEmail)) {
+                if (! $guestEmail || ! $order->belongsToGuest($guestEmail)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Unauthorized access to this order',
@@ -278,7 +294,7 @@ class OrderController extends Controller
                 ->where('order_number', $orderNumber)
                 ->first();
 
-            if (!$order) {
+            if (! $order) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order not found',
@@ -291,10 +307,10 @@ class OrderController extends Controller
             // 2. User is the customer who owns the order
             // 3. Order is a guest order and email matches (for guest orders)
             // 4. Order was just created (within last 30 minutes) - allow access for confirmation
-            
+
             $user = null;
             $customerId = null;
-            
+
             // Try to get authenticated user from token (since route is public)
             $authHeader = $request->header('Authorization');
             if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
@@ -307,15 +323,15 @@ class OrderController extends Controller
                     }
                 }
             }
-            
+
             // Fallback to $request->user() if available
-            if (!$user) {
+            if (! $user) {
                 $user = $request->user();
                 if ($user instanceof Customer) {
                     $customerId = $user->id;
                 }
             }
-            
+
             // Admin/Personnel can see all orders
             if ($user && ($user instanceof \App\Models\Admin || $user instanceof \App\Models\Personnel)) {
                 return response()->json([
@@ -394,7 +410,7 @@ class OrderController extends Controller
             // Manually authenticate customer (since route uses auth:sanctum, but be explicit)
             $user = $request->user();
             $customerId = null;
-            
+
             // Also check Authorization header manually for consistency
             $authHeader = $request->header('Authorization');
             if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
@@ -408,15 +424,15 @@ class OrderController extends Controller
                     }
                 }
             }
-            
+
             // Fallback to $request->user() if available
-            if (!$user && $request->user()) {
+            if (! $user && $request->user()) {
                 $user = $request->user();
                 if ($user instanceof Customer) {
                     $customerId = $user->id;
                 }
             }
-            
+
             $perPage = $request->input('per_page', 15);
             $page = $request->input('page', 1);
 
@@ -426,22 +442,22 @@ class OrderController extends Controller
             if ($customerId) {
                 $query->where('customer_id', $customerId);
                 // For customers, default to only showing paid orders unless explicitly requested otherwise
-                if (!$request->has('payment_status')) {
+                if (! $request->has('payment_status')) {
                     $query->where('payment_status', 'paid');
                 }
-            } elseif (!$user) {
+            } elseif (! $user) {
                 // Guests cannot list orders without email
                 $guestEmail = $request->input('guest_email');
-                if (!$guestEmail) {
+                if (! $guestEmail) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Guest email is required to view orders',
                     ], 422);
                 }
                 $query->where('guest_email', $guestEmail)
-                      ->whereNull('customer_id');
+                    ->whereNull('customer_id');
                 // For guests, also default to paid orders
-                if (!$request->has('payment_status')) {
+                if (! $request->has('payment_status')) {
                     $query->where('payment_status', 'paid');
                 }
             }
@@ -507,7 +523,7 @@ class OrderController extends Controller
         try {
             $order = Order::find($id);
 
-            if (!$order) {
+            if (! $order) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order not found',
@@ -516,7 +532,7 @@ class OrderController extends Controller
 
             // Check if user is admin or personnel
             $user = $request->user();
-            if (!$user || (!($user instanceof \App\Models\Admin) && !($user instanceof \App\Models\Personnel))) {
+            if (! $user || (! ($user instanceof \App\Models\Admin) && ! ($user instanceof \App\Models\Personnel))) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized. Admin access required.',
@@ -524,15 +540,15 @@ class OrderController extends Controller
             }
 
             $order->status = $request->status;
-            
+
             if ($request->has('payment_status')) {
                 $order->payment_status = $request->payment_status;
             }
 
             // Set timestamps based on status
-            if ($request->status === 'completed' && !$order->completed_at) {
+            if ($request->status === 'completed' && ! $order->completed_at) {
                 $order->completed_at = now();
-            } elseif ($request->status === 'cancelled' && !$order->cancelled_at) {
+            } elseif ($request->status === 'cancelled' && ! $order->cancelled_at) {
                 $order->cancelled_at = now();
             }
 
@@ -558,4 +574,3 @@ class OrderController extends Controller
         }
     }
 }
-

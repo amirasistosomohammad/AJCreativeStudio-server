@@ -2,25 +2,63 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
-use App\Models\EmailVerificationOtp;
-use App\Models\CustomerTimeLog;
 use App\Mail\EmailVerificationOtpMail;
+use App\Models\Customer;
+use App\Models\CustomerTimeLog;
+use App\Models\EmailVerificationOtp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 use Kreait\Firebase\Factory as FirebaseFactory;
 
 class SignupController extends Controller
 {
+    private function firebaseFactory(): FirebaseFactory
+    {
+        $factory = new FirebaseFactory;
+
+        $credentialsJsonB64 = (string) config('services.firebase.credentials_json_b64', '');
+        if ($credentialsJsonB64 !== '') {
+            $decoded = base64_decode($credentialsJsonB64, true);
+            if ($decoded === false) {
+                throw new \RuntimeException('Invalid FIREBASE_CREDENTIALS_JSON_B64 (base64 decode failed).');
+            }
+
+            $serviceAccount = json_decode($decoded, true);
+            if (! is_array($serviceAccount)) {
+                throw new \RuntimeException('Invalid FIREBASE_CREDENTIALS_JSON_B64 (decoded JSON is not an object).');
+            }
+
+            return $factory->withServiceAccount($serviceAccount);
+        }
+
+        $credentialsJson = (string) config('services.firebase.credentials_json', '');
+        if ($credentialsJson !== '') {
+            $serviceAccount = json_decode($credentialsJson, true);
+            if (! is_array($serviceAccount)) {
+                throw new \RuntimeException('Invalid FIREBASE_CREDENTIALS_JSON (JSON is not an object).');
+            }
+
+            return $factory->withServiceAccount($serviceAccount);
+        }
+
+        $credentialsPath = (string) (config('services.firebase.credentials_path')
+            ?: storage_path('aj-creative-studio-firebase-adminsdk-fbsvc-8524ea9999.json'));
+
+        if (! file_exists($credentialsPath)) {
+            throw new \RuntimeException('Firebase credentials file not found: '.$credentialsPath);
+        }
+
+        return $factory->withServiceAccount($credentialsPath);
+    }
+
     private function isCustomerVerified(?Customer $customer): bool
     {
-        if (!$customer) {
+        if (! $customer) {
             return false;
         }
 
@@ -69,10 +107,10 @@ class SignupController extends Controller
             }
 
             // If customer exists but not verified, delete old OTPs and resend
-            if ($existingCustomer && !$this->isCustomerVerified($existingCustomer)) {
+            if ($existingCustomer && ! $this->isCustomerVerified($existingCustomer)) {
                 // Delete old OTPs
                 EmailVerificationOtp::where('customer_id', $existingCustomer->id)->delete();
-                
+
                 // Update customer info
                 $existingCustomer->update([
                     'name' => $request->name,
@@ -80,7 +118,7 @@ class SignupController extends Controller
                     'password' => Hash::make($request->password),
                     'register_status' => 'pending',
                 ]);
-                
+
                 $customer = $existingCustomer;
             } else {
                 // Create new customer
@@ -97,7 +135,7 @@ class SignupController extends Controller
             // Generate and send OTP
             $otp = $this->generateAndSendOtp($customer);
 
-            if (!$otp) {
+            if (! $otp) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to send verification email. Please try again.',
@@ -115,7 +153,8 @@ class SignupController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('Signup error: ' . $e->getMessage());
+            Log::error('Signup error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during registration. Please try again.',
@@ -145,7 +184,7 @@ class SignupController extends Controller
             $normalizedEmail = strtolower(trim((string) $request->email));
             $customer = Customer::whereRaw('TRIM(LOWER(email)) = ?', [$normalizedEmail])->first();
 
-            if (!$customer) {
+            if (! $customer) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Customer not found.',
@@ -168,7 +207,7 @@ class SignupController extends Controller
                 ->latest()
                 ->first();
 
-            if (!$otpRecord) {
+            if (! $otpRecord) {
                 // Increment OTP attempts
                 $customer->increment('otp_attempts');
 
@@ -204,7 +243,8 @@ class SignupController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Email verification error: ' . $e->getMessage());
+            Log::error('Email verification error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during verification. Please try again.',
@@ -233,7 +273,7 @@ class SignupController extends Controller
             $normalizedEmail = strtolower(trim((string) $request->email));
             $customer = Customer::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
 
-            if (!$customer) {
+            if (! $customer) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Customer not found.',
@@ -271,7 +311,7 @@ class SignupController extends Controller
             // Generate and send new OTP
             $otp = $this->generateAndSendOtp($customer);
 
-            if (!$otp) {
+            if (! $otp) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to send verification email. Please try again.',
@@ -284,7 +324,8 @@ class SignupController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Resend OTP error: ' . $e->getMessage());
+            Log::error('Resend OTP error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred. Please try again.',
@@ -328,7 +369,7 @@ class SignupController extends Controller
                     'id_token' => $idToken,
                 ]);
 
-            if (!$tokenInfoResponse->ok()) {
+            if (! $tokenInfoResponse->ok()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Google token.',
@@ -453,10 +494,11 @@ class SignupController extends Controller
         }
 
         try {
-            $credentialsPath = storage_path('aj-creative-studio-firebase-adminsdk-fbsvc-8524ea9999.json');
-            
-            if (!file_exists($credentialsPath)) {
-                Log::error('Firebase credentials file not found: ' . $credentialsPath);
+            try {
+                $firebase = $this->firebaseFactory();
+            } catch (\Throwable $e) {
+                Log::error('Firebase credentials not configured: '.$e->getMessage());
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Firebase is not configured on the server.',
@@ -464,18 +506,17 @@ class SignupController extends Controller
                 ], 500);
             }
 
-            $firebase = (new FirebaseFactory)->withServiceAccount($credentialsPath);
             $auth = $firebase->createAuth();
 
             $idToken = (string) $request->input('id_token');
-            
+
             // Verify the ID token
             $verifiedToken = $auth->verifyIdToken($idToken);
             $uid = $verifiedToken->claims()->get('sub');
             $email = strtolower(trim((string) ($verifiedToken->claims()->get('email') ?? $request->input('email') ?? '')));
             $emailVerified = $verifiedToken->claims()->get('email_verified', false);
             $name = trim((string) ($verifiedToken->claims()->get('name') ?? $request->input('name') ?? ''));
-            
+
             if ($name === '') {
                 $name = trim((string) ($verifiedToken->claims()->get('given_name') ?? ''));
             }
@@ -491,7 +532,7 @@ class SignupController extends Controller
                 ], 422);
             }
 
-            if (!$emailVerified) {
+            if (! $emailVerified) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Google email is not verified.',
@@ -549,15 +590,16 @@ class SignupController extends Controller
                 ],
             ], 201);
         } catch (\Kreait\Firebase\Exception\Auth\FailedToVerifyToken $e) {
-            Log::error('Firebase token verification failed: ' . $e->getMessage());
+            Log::error('Firebase token verification failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Firebase token.',
                 'code' => 'FIREBASE_INVALID_TOKEN',
             ], 401);
         } catch (\Exception $e) {
-            Log::error('Firebase signup error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Firebase signup error: '.$e->getMessage());
+            Log::error('Stack trace: '.$e->getTraceAsString());
 
             return response()->json([
                 'success' => false,
@@ -586,10 +628,11 @@ class SignupController extends Controller
         }
 
         try {
-            $credentialsPath = storage_path('aj-creative-studio-firebase-adminsdk-fbsvc-8524ea9999.json');
-            
-            if (!file_exists($credentialsPath)) {
-                Log::error('Firebase credentials file not found: ' . $credentialsPath);
+            try {
+                $firebase = $this->firebaseFactory();
+            } catch (\Throwable $e) {
+                Log::error('Firebase credentials not configured: '.$e->getMessage());
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Firebase is not configured on the server.',
@@ -597,17 +640,16 @@ class SignupController extends Controller
                 ], 500);
             }
 
-            $firebase = (new FirebaseFactory)->withServiceAccount($credentialsPath);
             $auth = $firebase->createAuth();
 
             $idToken = (string) $request->input('id_token');
-            
+
             // Verify the ID token
             $verifiedToken = $auth->verifyIdToken($idToken);
             $uid = $verifiedToken->claims()->get('sub');
             $email = strtolower(trim((string) ($verifiedToken->claims()->get('email') ?? $request->input('email') ?? '')));
             $emailVerified = $verifiedToken->claims()->get('email_verified', false);
-            
+
             if ($email === '') {
                 return response()->json([
                     'success' => false,
@@ -616,7 +658,7 @@ class SignupController extends Controller
                 ], 422);
             }
 
-            if (!$emailVerified) {
+            if (! $emailVerified) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Google email is not verified.',
@@ -627,7 +669,7 @@ class SignupController extends Controller
             // Find customer by email
             $customer = Customer::whereRaw('LOWER(email) = ?', [$email])->first();
 
-            if (!$customer) {
+            if (! $customer) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No account found with this email. Please sign up first.',
@@ -666,7 +708,7 @@ class SignupController extends Controller
 
             // Check account status
             $registerStatus = strtolower(trim((string) ($customer->register_status ?? '')));
-            
+
             if ($registerStatus === 'pending') {
                 return response()->json([
                     'success' => false,
@@ -683,7 +725,7 @@ class SignupController extends Controller
                 ], 403);
             }
 
-            if (!$customer->email_verified_at) {
+            if (! $customer->email_verified_at) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Please verify your email address before logging in.',
@@ -691,7 +733,7 @@ class SignupController extends Controller
                 ], 403);
             }
 
-            if (!$customer->is_active) {
+            if (! $customer->is_active) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Your account is not active. Please contact support.',
@@ -724,7 +766,7 @@ class SignupController extends Controller
                 ]);
             } catch (\Exception $logError) {
                 // Log the error but don't fail the login
-                Log::warning('Failed to log customer login time: ' . $logError->getMessage());
+                Log::warning('Failed to log customer login time: '.$logError->getMessage());
             }
 
             return response()->json([
@@ -739,15 +781,16 @@ class SignupController extends Controller
                 ],
             ], 200);
         } catch (\Kreait\Firebase\Exception\Auth\FailedToVerifyToken $e) {
-            Log::error('Firebase token verification failed: ' . $e->getMessage());
+            Log::error('Firebase token verification failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Firebase token.',
                 'code' => 'FIREBASE_INVALID_TOKEN',
             ], 401);
         } catch (\Exception $e) {
-            Log::error('Firebase login error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Firebase login error: '.$e->getMessage());
+            Log::error('Stack trace: '.$e->getTraceAsString());
 
             return response()->json([
                 'success' => false,
@@ -764,7 +807,7 @@ class SignupController extends Controller
         // Check if user is authenticated via Sanctum
         $customer = $request->user();
 
-        if (!$customer || !($customer instanceof Customer)) {
+        if (! $customer || ! ($customer instanceof Customer)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized',
@@ -807,7 +850,7 @@ class SignupController extends Controller
             $customer = Customer::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
 
             // Check if customer exists
-            if (!$customer) {
+            if (! $customer) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No account found with this email address. Please sign up to create an account.',
@@ -837,7 +880,7 @@ class SignupController extends Controller
             }
 
             // 2) email_verified_at must be set
-            if (!$customer->email_verified_at) {
+            if (! $customer->email_verified_at) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Please verify your email address before logging in. Check your inbox for the verification code.',
@@ -846,7 +889,7 @@ class SignupController extends Controller
             }
 
             // 3) Account must be active
-            if (!$customer->is_active) {
+            if (! $customer->is_active) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Your account is not active. Please verify your email address to activate your account.',
@@ -857,8 +900,8 @@ class SignupController extends Controller
             // 4) Check if user signed up with Google (has google_sub)
             // Google signup users have a random password they don't know
             // Best practice: Guide them to use Google sign-in instead
-            $hasGoogleAuth = !empty($customer->google_sub);
-            
+            $hasGoogleAuth = ! empty($customer->google_sub);
+
             // If user has Google auth, they should ONLY use Google sign-in
             if ($hasGoogleAuth) {
                 return response()->json([
@@ -867,9 +910,9 @@ class SignupController extends Controller
                     'code' => 'USE_GOOGLE_LOGIN',
                 ], 401);
             }
-            
+
             // Only check password for regular email/password accounts
-            if (!Hash::check($request->password, $customer->password)) {
+            if (! Hash::check($request->password, $customer->password)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid password. Please check your password and try again.',
@@ -896,7 +939,7 @@ class SignupController extends Controller
                 ]);
             } catch (\Exception $logError) {
                 // Log the error but don't fail the login
-                Log::warning('Failed to log customer login time: ' . $logError->getMessage());
+                Log::warning('Failed to log customer login time: '.$logError->getMessage());
             }
 
             return response()->json([
@@ -912,7 +955,8 @@ class SignupController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Login error: ' . $e->getMessage());
+            Log::error('Login error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during login. Please try again.',
@@ -946,9 +990,9 @@ class SignupController extends Controller
             return $otp;
 
         } catch (\Exception $e) {
-            Log::error('Generate OTP error: ' . $e->getMessage());
+            Log::error('Generate OTP error: '.$e->getMessage());
+
             return null;
         }
     }
 }
-

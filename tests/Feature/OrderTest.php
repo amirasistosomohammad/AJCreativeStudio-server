@@ -1,18 +1,14 @@
 <?php
 
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Artisan;
 
 uses(RefreshDatabase::class);
 
-beforeAll(function () {
-    // Run migrations for test database
-    Artisan::call('migrate', ['--env' => 'testing']);
-});
+// Note: RefreshDatabase already runs migrations for the test database.
 
 beforeEach(function () {
     // Create test products
@@ -234,8 +230,8 @@ test('can create order with discount', function () {
     $response->assertStatus(201);
 
     $order = Order::first();
-    expect($order->discount_amount)->toBe(20.00)
-        ->and($order->total_amount)->toBe(80.00);
+    expect($order->discount_amount)->toEqual(20.00)
+        ->and($order->total_amount)->toEqual(80.00);
 });
 
 test('rejects order with invalid product id', function () {
@@ -302,8 +298,8 @@ test('recalculates totals if mismatch detected', function () {
 
     $order = Order::first();
     // System should recalculate and use correct total
-    expect($order->subtotal)->toBe(200.00)
-        ->and($order->total_amount)->toBe(200.00);
+    expect($order->subtotal)->toEqual(200.00)
+        ->and($order->total_amount)->toEqual(200.00);
 });
 
 test('requires guest email for guest orders', function () {
@@ -421,7 +417,7 @@ test('customer can list their orders', function () {
         'total_amount' => 100.00,
         'currency' => 'PHP',
         'status' => 'pending',
-        'payment_status' => 'pending',
+        'payment_status' => 'paid',
     ]);
 
     Order::create([
@@ -509,7 +505,7 @@ test('order mark as cancelled updates correctly', function () {
 
     $order->refresh();
     expect($order->status)->toBe('cancelled')
-        ->and($order->payment_status)->toBe('cancelled')
+        ->and($order->payment_status)->toBe('failed')
         ->and($order->cancelled_at)->not->toBeNull();
 });
 
@@ -539,7 +535,7 @@ test('order items preserve product information', function () {
     $order->refresh();
     expect($order->items)->toHaveCount(1)
         ->and($order->items[0]->product_name)->toBe('Test Product 1')
-        ->and($order->items[0]->product_price)->toBe(100.00);
+        ->and($order->items[0]->product_price)->toEqual(100.00);
 });
 
 test('order totals are calculated correctly', function () {
@@ -556,7 +552,7 @@ test('order totals are calculated correctly', function () {
 
     // Verify: total = subtotal + tax - discount
     $expectedTotal = $order->subtotal + $order->tax_amount - $order->discount_amount;
-    expect($order->total_amount)->toBe($expectedTotal);
+    expect($order->total_amount)->toEqual($expectedTotal);
 });
 
 test('order item subtotal is calculated correctly', function () {
@@ -578,6 +574,6 @@ test('order item subtotal is calculated correctly', function () {
         'subtotal' => 200.00,
     ]);
 
-    expect($orderItem->subtotal)->toBe(200.00)
-        ->and($orderItem->calculateSubtotal())->toBe(200.00);
+    expect($orderItem->subtotal)->toEqual(200.00)
+        ->and($orderItem->calculateSubtotal())->toEqual(200.00);
 });

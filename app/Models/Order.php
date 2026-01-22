@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class Order extends Model
 {
@@ -51,20 +50,20 @@ class Order extends Model
     {
         $prefix = 'ORD';
         $date = now()->format('Ymd');
-        
+
         // Get the last order number for today
         $lastOrder = self::where('order_number', 'like', "{$prefix}-{$date}-%")
             ->orderBy('order_number', 'desc')
             ->first();
-        
+
         if ($lastOrder) {
             // Extract the sequence number and increment
             $parts = explode('-', $lastOrder->order_number);
-            $sequence = isset($parts[2]) ? (int)$parts[2] + 1 : 1;
+            $sequence = isset($parts[2]) ? (int) $parts[2] + 1 : 1;
         } else {
             $sequence = 1;
         }
-        
+
         // Format: ORD-20260113-0001
         return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
     }
@@ -128,8 +127,8 @@ class Order extends Model
      */
     public function belongsToGuest($email): bool
     {
-        return $this->customer_id === null && 
-               $this->guest_email !== null && 
+        return $this->customer_id === null &&
+               $this->guest_email !== null &&
                strtolower($this->guest_email) === strtolower($email);
     }
 
@@ -161,9 +160,17 @@ class Order extends Model
      */
     public function markAsCancelled(): void
     {
+        $nextPaymentStatus = $this->payment_status;
+
+        if ($this->payment_status === 'paid') {
+            $nextPaymentStatus = 'refunded';
+        } elseif ($this->payment_status === 'pending') {
+            $nextPaymentStatus = 'failed';
+        }
+
         $this->update([
             'status' => 'cancelled',
-            'payment_status' => 'cancelled',
+            'payment_status' => $nextPaymentStatus,
             'cancelled_at' => now(),
         ]);
     }
