@@ -19,6 +19,7 @@ use App\Http\Controllers\ProductCollectionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductFaqController;
 use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\PublicFileController;
 use App\Http\Controllers\SignupController;
 use App\Http\Controllers\TestEmailController;
 use App\Http\Controllers\TimeLogController;
@@ -29,6 +30,9 @@ Route::post('/payments/gcash/create', [PaymentController::class, 'createGcashPay
 // Public site branding (logo + logo text)
 Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
+
+// Public file streaming for assets stored in the "public" disk (avoids relying on /storage symlink in App Platform)
+Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.*');
 
 // Order routes (public for creation, auth required for viewing)
 Route::post('/orders', [OrderController::class, 'store']);
