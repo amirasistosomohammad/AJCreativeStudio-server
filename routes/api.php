@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\CustomerController;
@@ -24,6 +25,10 @@ use App\Http\Controllers\TimeLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/payments/gcash/create', [PaymentController::class, 'createGcashPayment']);
+
+// Public site branding (logo + logo text)
+Route::get('/branding', [BrandingController::class, 'show']);
+Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
 // Order routes (public for creation, auth required for viewing)
 Route::post('/orders', [OrderController::class, 'store']);
@@ -81,6 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/me', [LoginController::class, 'me']);
     Route::post('/admin/logout', [LoginController::class, 'logout']);
     Route::put('/admin/change-password', [AdminSettingsController::class, 'changePassword']);
+    Route::get('/admin/branding', [AdminSettingsController::class, 'getBranding']);
+    Route::post('/admin/branding', [AdminSettingsController::class, 'updateBranding']);
 
     // Customer authentication routes
     Route::get('/auth/me', [SignupController::class, 'me']);
