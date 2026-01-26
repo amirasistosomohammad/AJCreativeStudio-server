@@ -47,12 +47,6 @@ class Product extends Model
     ];
 
     /**
-     * The accessors to append to the model's array form.
-     * This ensures thumbnail_image_url and feature_images_urls are always included in JSON responses.
-     */
-    protected $appends = ['thumbnail_image_url', 'feature_images_urls'];
-
-    /**
      * Generate slug from title
      */
     public static function createSlug($title)
@@ -64,44 +58,6 @@ class Product extends Model
                 str_replace('&', 'and', $title)
             )
         );
-    }
-
-    /**
-     * Get the full URL for thumbnail image
-     * Uses /api/files/ endpoint to work on DigitalOcean App Platform
-     */
-    public function getThumbnailImageUrlAttribute()
-    {
-        if (! $this->thumbnail_image) {
-            return null;
-        }
-
-        // Use request URL if available (more reliable than config)
-        $baseUrl = request() 
-            ? rtrim(request()->getSchemeAndHttpHost(), '/')
-            : rtrim(config('app.url', 'https://ajcreativestudio-server-y4duu.ondigitalocean.app'), '/');
-        
-        return $baseUrl . '/api/files/' . ltrim($this->thumbnail_image, '/');
-    }
-
-    /**
-     * Get full URLs for feature images
-     * Uses /api/files/ endpoint to work on DigitalOcean App Platform
-     */
-    public function getFeatureImagesUrlsAttribute()
-    {
-        if (! $this->feature_images || ! is_array($this->feature_images)) {
-            return [];
-        }
-
-        // Use request URL if available (more reliable than config)
-        $baseUrl = request() 
-            ? rtrim(request()->getSchemeAndHttpHost(), '/')
-            : rtrim(config('app.url', 'https://ajcreativestudio-server-y4duu.ondigitalocean.app'), '/');
-        
-        return array_map(function ($image) use ($baseUrl) {
-            return $baseUrl . '/api/files/' . ltrim($image, '/');
-        }, $this->feature_images);
     }
 
     /**
