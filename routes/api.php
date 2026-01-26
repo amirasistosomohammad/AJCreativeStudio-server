@@ -33,7 +33,9 @@ Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
 // Public file streaming - MUST be early to avoid route conflicts
 // This route handles all file requests: /api/files/products/thumbnails/image.png
-Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.+');
+Route::get('/files/{path}', [PublicFileController::class, 'show'])
+    ->where('path', '.+')
+    ->name('public.files');
 
 // Order routes (public for creation, auth required for viewing)
 Route::post('/orders', [OrderController::class, 'store']);
