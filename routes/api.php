@@ -32,7 +32,8 @@ Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
 // Public file streaming for assets stored in the "public" disk (avoids relying on /storage symlink in App Platform)
-Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.*');
+// Use a catch-all pattern that matches any path including slashes
+Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.+');
 
 // Order routes (public for creation, auth required for viewing)
 Route::post('/orders', [OrderController::class, 'store']);
