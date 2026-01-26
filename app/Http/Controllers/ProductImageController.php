@@ -18,35 +18,57 @@ class ProductImageController extends Controller
         $product = Product::find($id);
         
         if (!$product) {
-            Log::warning('ProductImageController: Product not found', ['id' => $id]);
-            return response()->noContent(Response::HTTP_NOT_FOUND);
+            return response()->json(['error' => 'Product not found'], 404);
         }
         
         if (!$product->thumbnail_image) {
-            Log::warning('ProductImageController: No thumbnail path in database', ['id' => $id, 'product' => $product->title]);
-            return response()->noContent(Response::HTTP_NOT_FOUND);
+            return response()->json(['error' => 'No thumbnail path in database'], 404);
         }
 
         $path = $product->thumbnail_image;
         
-        Log::info('ProductImageController: Attempting to serve thumbnail', [
-            'product_id' => $id,
-            'product_title' => $product->title,
-            'path' => $path,
-            'exists' => Storage::disk('public')->exists($path),
-            'storage_root' => Storage::disk('public')->path(''),
-        ]);
+        // Try multiple possible locations
+        $possiblePaths = [
+            $path,
+            'public/' . $path,
+            'storage/app/public/' . $path,
+            ltrim($path, '/'),
+        ];
         
-        if (! Storage::disk('public')->exists($path)) {
-            Log::warning('ProductImageController: File not found in storage', [
+        $foundPath = null;
+        foreach ($possiblePaths as $tryPath) {
+            if (Storage::disk('public')->exists($tryPath)) {
+                $foundPath = $tryPath;
+                break;
+            }
+        }
+        
+        // Also try direct file system check
+        if (!$foundPath) {
+            $storageRoot = Storage::disk('public')->path('');
+            $directPath = $storageRoot . '/' . ltrim($path, '/');
+            if (file_exists($directPath)) {
+                $foundPath = $path;
+            }
+        }
+        
+        if (!$foundPath) {
+            // Check what files actually exist
+            $allFiles = Storage::disk('public')->allFiles('products/thumbnails');
+            $storageRoot = Storage::disk('public')->path('');
+            
+            return response()->json([
+                'error' => 'File not found in any location',
                 'product_id' => $id,
-                'path' => $path,
-                'full_path' => Storage::disk('public')->path($path),
-            ]);
-            return response()->noContent(Response::HTTP_NOT_FOUND);
+                'product_title' => $product->title,
+                'database_path' => $path,
+                'storage_root' => $storageRoot,
+                'files_in_thumbnails' => array_slice($allFiles, 0, 20),
+                'total_files' => count($allFiles),
+            ], 404);
         }
 
-        return Storage::disk('public')->response($path, null, [
+        return Storage::disk('public')->response($foundPath, null, [
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
