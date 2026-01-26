@@ -35,22 +35,45 @@ Route::get('/branding/logo', [BrandingController::class, 'logo']);
 Route::get('/files-debug', function() {
     $thumbnails = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('products/thumbnails');
     $features = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('products/features');
-    $products = \App\Models\Product::select('id', 'title', 'thumbnail_image')->get();
+    $products = \App\Models\Product::select('id', 'title', 'thumbnail_image', 'feature_images')->get();
+    
+    // Check all possible storage locations
+    $storageRoot = storage_path('app/public');
+    $publicStorage = public_path('storage');
     
     return response()->json([
-        'storage_root' => storage_path('app/public'),
-        'thumbnails_on_disk' => array_slice($thumbnails, 0, 20),
-        'features_on_disk' => array_slice($features, 0, 20),
+        'storage_root' => $storageRoot,
+        'public_storage' => $publicStorage,
+        'public_storage_exists' => is_dir($publicStorage),
+        'thumbnails_on_disk' => array_slice($thumbnails, 0, 50),
+        'features_on_disk' => array_slice($features, 0, 50),
         'products_in_db' => $products->map(function($p) {
+            $thumbnailExists = $p->thumbnail_image ? \Illuminate\Support\Facades\Storage::disk('public')->exists($p->thumbnail_image) : false;
+            
+            // Check if file exists in public/storage (symlink location)
+            $publicPath = null;
+            $publicExists = false;
+            if ($p->thumbnail_image) {
+                $publicPath = public_path('storage/' . $p->thumbnail_image);
+                $publicExists = file_exists($publicPath);
+            }
+            
             return [
                 'id' => $p->id,
                 'title' => $p->title,
                 'thumbnail_path' => $p->thumbnail_image,
-                'exists' => $p->thumbnail_image ? \Illuminate\Support\Facades\Storage::disk('public')->exists($p->thumbnail_image) : false,
+                'exists_in_storage' => $thumbnailExists,
+                'exists_in_public' => $publicExists,
+                'public_path' => $publicPath,
+                'feature_images' => $p->feature_images,
             ];
         }),
         'total_thumbnails' => count($thumbnails),
         'total_features' => count($features),
+        'all_directories' => [
+            'products' => \Illuminate\Support\Facades\Storage::disk('public')->directories('products'),
+            'root' => \Illuminate\Support\Facades\Storage::disk('public')->directories(''),
+        ],
     ]);
 });
 
@@ -121,6 +144,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/admin/change-password', [AdminSettingsController::class, 'changePassword']);
     Route::get('/admin/branding', [AdminSettingsController::class, 'getBranding']);
     Route::post('/admin/branding', [AdminSettingsController::class, 'updateBranding']);
+    
+    // Product image sync endpoints
+    Route::get('/admin/products/images/check-missing', [\App\Http\Controllers\Admin\SyncProductImagesController::class, 'checkMissing']);
+    Route::post('/admin/products/images/upload', [\App\Http\Controllers\Admin\SyncProductImagesController::class, 'uploadFile']);
 
     // Customer authentication routes
     Route::get('/auth/me', [SignupController::class, 'me']);
