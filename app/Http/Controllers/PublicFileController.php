@@ -52,11 +52,20 @@ class PublicFileController extends Controller
         
         // Prevent path traversal
         if (str_contains($path, '..') || empty($path)) {
+            \Log::warning('PublicFileController: Invalid path', ['path' => $path]);
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
         // Check if file exists
-        if (! Storage::disk('public')->exists($path)) {
+        $exists = Storage::disk('public')->exists($path);
+        $fullPath = Storage::disk('public')->path($path);
+        
+        if (! $exists) {
+            \Log::warning('PublicFileController: File not found', [
+                'path' => $path,
+                'full_path' => $fullPath,
+                'directory_exists' => is_dir(dirname($fullPath)),
+            ]);
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 

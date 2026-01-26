@@ -31,26 +31,45 @@ Route::post('/payments/gcash/create', [PaymentController::class, 'createGcashPay
 Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
+// Test endpoint to verify route is working
+Route::get('/files-test', function() {
+    return response()->json([
+        'message' => 'Files route is accessible',
+        'timestamp' => now()->toDateTimeString(),
+    ]);
+});
+
 // Diagnostic endpoint to check file storage
 Route::get('/files-debug', function() {
     $thumbnails = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('products/thumbnails');
     $features = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('products/features');
     $products = \App\Models\Product::select('id', 'title', 'thumbnail_image', 'feature_images')->get();
     
+    // Test if we can access storage
+    $testPath = 'products/thumbnails';
+    $storageExists = \Illuminate\Support\Facades\Storage::disk('public')->exists($testPath) || is_dir(\Illuminate\Support\Facades\Storage::disk('public')->path($testPath));
+    
     return response()->json([
+        'route_working' => true,
         'storage_root' => storage_path('app/public'),
+        'storage_directory_exists' => $storageExists,
         'thumbnails_on_disk' => $thumbnails,
         'features_on_disk' => $features,
+        'total_thumbnails' => count($thumbnails),
+        'total_features' => count($features),
         'products_in_db' => $products->map(function($p) {
+            $exists = $p->thumbnail_image ? \Illuminate\Support\Facades\Storage::disk('public')->exists($p->thumbnail_image) : false;
+            $fullPath = $p->thumbnail_image ? \Illuminate\Support\Facades\Storage::disk('public')->path($p->thumbnail_image) : null;
+            
             return [
                 'id' => $p->id,
                 'title' => $p->title,
                 'thumbnail_path' => $p->thumbnail_image,
-                'exists' => $p->thumbnail_image ? \Illuminate\Support\Facades\Storage::disk('public')->exists($p->thumbnail_image) : false,
+                'exists' => $exists,
+                'full_path' => $fullPath,
+                'file_exists_on_disk' => $fullPath && file_exists($fullPath),
             ];
         }),
-        'total_thumbnails' => count($thumbnails),
-        'total_features' => count($features),
     ]);
 });
 
