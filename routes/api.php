@@ -30,6 +30,26 @@ Route::post('/payments/gcash/create', [PaymentController::class, 'createGcashPay
 Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
+// Serve storage files (fallback if symlink doesn't work on DigitalOcean)
+Route::get('/storage/{path}', function ($path) {
+    $path = urldecode($path);
+    
+    // Prevent path traversal
+    if (str_contains($path, '..') || empty($path)) {
+        abort(404);
+    }
+    
+    // Check if file exists in storage
+    if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+        abort(404);
+    }
+    
+    // Return the file
+    return \Illuminate\Support\Facades\Storage::disk('public')->response($path, null, [
+        'Cache-Control' => 'public, max-age=3600',
+    ]);
+})->where('path', '.*');
+
 // Order routes (public for creation, auth required for viewing)
 Route::post('/orders', [OrderController::class, 'store']);
 Route::get('/orders/{id}', [OrderController::class, 'show']);
