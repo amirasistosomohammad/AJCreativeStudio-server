@@ -76,8 +76,11 @@ class Product extends Model
             return null;
         }
 
-        // Use /api/files/ endpoint (works on App Platform)
-        $baseUrl = rtrim(config('app.url'), '/');
+        // Use request URL if available (more reliable than config)
+        $baseUrl = request() 
+            ? rtrim(request()->getSchemeAndHttpHost(), '/')
+            : rtrim(config('app.url', 'https://ajcreativestudio-server-y4duu.ondigitalocean.app'), '/');
+        
         return $baseUrl . '/api/files/' . ltrim($this->thumbnail_image, '/');
     }
 
@@ -91,7 +94,11 @@ class Product extends Model
             return [];
         }
 
-        $baseUrl = rtrim(config('app.url'), '/');
+        // Use request URL if available (more reliable than config)
+        $baseUrl = request() 
+            ? rtrim(request()->getSchemeAndHttpHost(), '/')
+            : rtrim(config('app.url', 'https://ajcreativestudio-server-y4duu.ondigitalocean.app'), '/');
+        
         return array_map(function ($image) use ($baseUrl) {
             return $baseUrl . '/api/files/' . ltrim($image, '/');
         }, $this->feature_images);
