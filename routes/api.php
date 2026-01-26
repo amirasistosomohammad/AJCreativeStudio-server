@@ -33,6 +33,7 @@ Route::get('/branding/logo', [BrandingController::class, 'logo']);
 // Serve storage files (fallback if symlink doesn't work on DigitalOcean)
 Route::get('/storage/{path}', function ($path) {
     $path = urldecode($path);
+    $disk = config('products.storage_disk', 'public');
     
     // Prevent path traversal
     if (str_contains($path, '..') || empty($path)) {
@@ -40,12 +41,12 @@ Route::get('/storage/{path}', function ($path) {
     }
     
     // Check if file exists in storage
-    if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+    if (!\Illuminate\Support\Facades\Storage::disk($disk)->exists($path)) {
         abort(404);
     }
     
     // Return the file
-    return \Illuminate\Support\Facades\Storage::disk('public')->response($path, null, [
+    return \Illuminate\Support\Facades\Storage::disk($disk)->response($path, null, [
         'Cache-Control' => 'public, max-age=3600',
     ]);
 })->where('path', '.*');

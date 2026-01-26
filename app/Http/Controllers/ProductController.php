@@ -68,6 +68,8 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+        $disk = config('products.storage_disk', 'public');
+
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'subtitle' => 'required|string',
@@ -97,7 +99,13 @@ class ProductController extends Controller
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $fileName = time() . '_' . $file->getClientOriginalName();
-            $filePath = $file->storeAs('products', $fileName, 'public');
+            $filePath = $file->storeAs('products', $fileName, $disk);
+            if (! $filePath || ! Storage::disk($disk)->exists($filePath)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to store product file on server storage',
+                ], 500);
+            }
             
             $data['file_path'] = $filePath;
             $data['file_name'] = $file->getClientOriginalName();
@@ -108,7 +116,13 @@ class ProductController extends Controller
         if ($request->hasFile('thumbnail_image')) {
             $thumbnail = $request->file('thumbnail_image');
             $thumbnailName = time() . '_thumbnail_' . $thumbnail->getClientOriginalName();
-            $thumbnailPath = $thumbnail->storeAs('products/thumbnails', $thumbnailName, 'public');
+            $thumbnailPath = $thumbnail->storeAs('products/thumbnails', $thumbnailName, $disk);
+            if (! $thumbnailPath || ! Storage::disk($disk)->exists($thumbnailPath)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to store product thumbnail image on server storage',
+                ], 500);
+            }
             $data['thumbnail_image'] = $thumbnailPath;
         }
         
@@ -117,7 +131,13 @@ class ProductController extends Controller
             $featureImages = [];
             foreach ($request->file('feature_images') as $index => $image) {
                 $imageName = time() . '_feature_' . $index . '_' . $image->getClientOriginalName();
-                $imagePath = $image->storeAs('products/features', $imageName, 'public');
+                $imagePath = $image->storeAs('products/features', $imageName, $disk);
+                if (! $imagePath || ! Storage::disk($disk)->exists($imagePath)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to store one of the feature images on server storage',
+                    ], 500);
+                }
                 $featureImages[] = $imagePath;
             }
             $data['feature_images'] = $featureImages;
@@ -190,6 +210,7 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $product = Product::find($id);
+        $disk = config('products.storage_disk', 'public');
 
         if (!$product) {
             return response()->json([
@@ -261,8 +282,8 @@ class ProductController extends Controller
 
         // Handle file removal
         if ($request->has('remove_file') && $request->remove_file === '1') {
-            if ($product->file_path && Storage::disk('public')->exists($product->file_path)) {
-                Storage::disk('public')->delete($product->file_path);
+            if ($product->file_path && Storage::disk($disk)->exists($product->file_path)) {
+                Storage::disk($disk)->delete($product->file_path);
             }
             $data['file_path'] = null;
             $data['file_name'] = null;
@@ -272,13 +293,19 @@ class ProductController extends Controller
         // Handle file upload
         if ($request->hasFile('file')) {
             // Delete old file if exists
-            if ($product->file_path && Storage::disk('public')->exists($product->file_path)) {
-                Storage::disk('public')->delete($product->file_path);
+            if ($product->file_path && Storage::disk($disk)->exists($product->file_path)) {
+                Storage::disk($disk)->delete($product->file_path);
             }
             
             $file = $request->file('file');
             $fileName = time() . '_' . $file->getClientOriginalName();
-            $filePath = $file->storeAs('products', $fileName, 'public');
+            $filePath = $file->storeAs('products', $fileName, $disk);
+            if (! $filePath || ! Storage::disk($disk)->exists($filePath)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to store product file on server storage',
+                ], 500);
+            }
             
             $data['file_path'] = $filePath;
             $data['file_name'] = $file->getClientOriginalName();
@@ -287,8 +314,8 @@ class ProductController extends Controller
         
         // Handle thumbnail image removal
         if ($request->has('remove_thumbnail') && $request->remove_thumbnail === '1') {
-            if ($product->thumbnail_image && Storage::disk('public')->exists($product->thumbnail_image)) {
-                Storage::disk('public')->delete($product->thumbnail_image);
+            if ($product->thumbnail_image && Storage::disk($disk)->exists($product->thumbnail_image)) {
+                Storage::disk($disk)->delete($product->thumbnail_image);
             }
             $data['thumbnail_image'] = null;
         }
@@ -296,13 +323,19 @@ class ProductController extends Controller
         // Handle thumbnail image upload
         if ($request->hasFile('thumbnail_image')) {
             // Delete old thumbnail if exists
-            if ($product->thumbnail_image && Storage::disk('public')->exists($product->thumbnail_image)) {
-                Storage::disk('public')->delete($product->thumbnail_image);
+            if ($product->thumbnail_image && Storage::disk($disk)->exists($product->thumbnail_image)) {
+                Storage::disk($disk)->delete($product->thumbnail_image);
             }
             
             $thumbnail = $request->file('thumbnail_image');
             $thumbnailName = time() . '_thumbnail_' . $thumbnail->getClientOriginalName();
-            $thumbnailPath = $thumbnail->storeAs('products/thumbnails', $thumbnailName, 'public');
+            $thumbnailPath = $thumbnail->storeAs('products/thumbnails', $thumbnailName, $disk);
+            if (! $thumbnailPath || ! Storage::disk($disk)->exists($thumbnailPath)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to store product thumbnail image on server storage',
+                ], 500);
+            }
             $data['thumbnail_image'] = $thumbnailPath;
         }
         
@@ -320,8 +353,8 @@ class ProductController extends Controller
         // First, handle removal
         if ($request->has('remove_feature_images') && is_array($request->remove_feature_images)) {
             foreach ($request->remove_feature_images as $index) {
-                if (isset($currentFeatureImages[$index]) && Storage::disk('public')->exists($currentFeatureImages[$index])) {
-                    Storage::disk('public')->delete($currentFeatureImages[$index]);
+                if (isset($currentFeatureImages[$index]) && Storage::disk($disk)->exists($currentFeatureImages[$index])) {
+                    Storage::disk($disk)->delete($currentFeatureImages[$index]);
                 }
             }
             // Remove deleted images from array
@@ -334,7 +367,13 @@ class ProductController extends Controller
             
             foreach ($request->file('feature_images') as $index => $image) {
                 $imageName = time() . '_feature_' . $index . '_' . $image->getClientOriginalName();
-                $imagePath = $image->storeAs('products/features', $imageName, 'public');
+                $imagePath = $image->storeAs('products/features', $imageName, $disk);
+                if (! $imagePath || ! Storage::disk($disk)->exists($imagePath)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to store one of the feature images on server storage',
+                    ], 500);
+                }
                 $newFeatureImages[] = $imagePath;
             }
             
@@ -380,6 +419,7 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $product = Product::find($id);
+        $disk = config('products.storage_disk', 'public');
 
         if (!$product) {
             return response()->json([
@@ -389,8 +429,8 @@ class ProductController extends Controller
         }
 
         // Delete associated file if exists
-        if ($product->file_path && Storage::disk('public')->exists($product->file_path)) {
-            Storage::disk('public')->delete($product->file_path);
+        if ($product->file_path && Storage::disk($disk)->exists($product->file_path)) {
+            Storage::disk($disk)->delete($product->file_path);
         }
 
         $product->delete();
@@ -495,6 +535,7 @@ class ProductController extends Controller
     public function downloadFile($id)
     {
         $product = Product::find($id);
+        $disk = config('products.storage_disk', 'public');
 
         if (!$product) {
             return response()->json([
@@ -511,20 +552,16 @@ class ProductController extends Controller
         }
 
         // Check if file exists
-        if (!Storage::disk('public')->exists($product->file_path)) {
+        if (! Storage::disk($disk)->exists($product->file_path)) {
             return response()->json([
                 'success' => false,
                 'message' => 'File not found on server',
             ], 404);
         }
 
-        // Get the file path
-        $filePath = Storage::disk('public')->path($product->file_path);
         $fileName = $product->file_name ?: basename($product->file_path);
 
         // Return file download response
-        return response()->download($filePath, $fileName, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ]);
+        return Storage::disk($disk)->download($product->file_path, $fileName);
     }
 }
