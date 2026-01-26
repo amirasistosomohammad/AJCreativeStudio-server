@@ -31,8 +31,34 @@ Route::post('/payments/gcash/create', [PaymentController::class, 'createGcashPay
 Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
-// Public file streaming - MUST be early to avoid route conflicts
-// This route handles all file requests: /api/files/products/thumbnails/image.png
+// Diagnostic endpoint to check file storage
+Route::get('/files-debug', function() {
+    $thumbnails = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('products/thumbnails');
+    $features = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('products/features');
+    $products = \App\Models\Product::select('id', 'title', 'thumbnail_image')->get();
+    
+    return response()->json([
+        'storage_root' => storage_path('app/public'),
+        'thumbnails_on_disk' => array_slice($thumbnails, 0, 20),
+        'features_on_disk' => array_slice($features, 0, 20),
+        'products_in_db' => $products->map(function($p) {
+            return [
+                'id' => $p->id,
+                'title' => $p->title,
+                'thumbnail_path' => $p->thumbnail_image,
+                'exists' => $p->thumbnail_image ? \Illuminate\Support\Facades\Storage::disk('public')->exists($p->thumbnail_image) : false,
+            ];
+        }),
+        'total_thumbnails' => count($thumbnails),
+        'total_features' => count($features),
+    ]);
+});
+
+// Public file streaming - Define specific patterns first, then catch-all
+Route::get('/files/products/thumbnails/{file}', [PublicFileController::class, 'showFile']);
+Route::get('/files/products/features/{file}', [PublicFileController::class, 'showFile']);
+Route::get('/files/branding/{file}', [PublicFileController::class, 'showFile']);
+// Catch-all for any other file paths
 Route::get('/files/{path}', [PublicFileController::class, 'show'])
     ->where('path', '.+')
     ->name('public.files');

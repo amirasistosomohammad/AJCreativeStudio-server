@@ -4,21 +4,33 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class PublicFileController extends Controller
 {
-    public function show(Request $request, $path = null)
+    /**
+     * Handle specific file routes (products/thumbnails/{file}, products/features/{file}, etc.)
+     */
+    public function showFile(Request $request, string $file, string $path = null)
     {
-        // Handle both route parameter and direct URI extraction
-        if (empty($path)) {
-            $uri = $request->getRequestUri();
-            $path = str_replace('/api/files/', '', $uri);
-            $path = ltrim($path, '/');
+        // Reconstruct the full path from the route segments
+        $uri = $request->getRequestUri();
+        $fullPath = str_replace('/api/files/', '', $uri);
+        $fullPath = ltrim($fullPath, '/');
+        
+        // Remove query string
+        if (($pos = strpos($fullPath, '?')) !== false) {
+            $fullPath = substr($fullPath, 0, $pos);
         }
         
-        // Clean the path
+        return $this->serveFile($fullPath);
+    }
+
+    /**
+     * Handle catch-all file route
+     */
+    public function show(Request $request, string $path)
+    {
         $path = ltrim($path, '/');
         
         // Remove query string
@@ -26,35 +38,29 @@ class PublicFileController extends Controller
             $path = substr($path, 0, $pos);
         }
         
+        return $this->serveFile($path);
+    }
+
+    /**
+     * Serve a file from storage
+     */
+    private function serveFile(string $path)
+    {
         // URL decode
         $path = urldecode($path);
+        $path = ltrim($path, '/');
         
         // Prevent path traversal
         if (str_contains($path, '..') || empty($path)) {
-            Log::warning('PublicFileController: Invalid path', ['path' => $path, 'uri' => $request->getRequestUri()]);
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
-        // Log for debugging
-        $exists = Storage::disk('public')->exists($path);
-        Log::info('PublicFileController', [
-            'uri' => $request->getRequestUri(),
-            'path' => $path,
-            'exists' => $exists,
-            'storage_root' => Storage::disk('public')->path(''),
-        ]);
-
-        if (! $exists) {
-            // List files in the directory to help debug
-            $dir = dirname($path);
-            $files = Storage::disk('public')->allFiles($dir);
-            Log::warning('PublicFileController: File not found', [
-                'requested' => $path,
-                'files_in_dir' => array_slice($files, 0, 10), // First 10 files
-            ]);
+        // Check if file exists
+        if (! Storage::disk('public')->exists($path)) {
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
+        // Return the file
         return Storage::disk('public')->response($path, null, [
             'Cache-Control' => 'public, max-age=3600',
         ]);
