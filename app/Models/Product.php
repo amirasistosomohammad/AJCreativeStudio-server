@@ -68,6 +68,7 @@ class Product extends Model
 
     /**
      * Get the full URL for thumbnail image
+     * Uses /api/files/ endpoint to work on DigitalOcean App Platform
      */
     public function getThumbnailImageUrlAttribute()
     {
@@ -75,11 +76,14 @@ class Product extends Model
             return null;
         }
 
-        return asset('storage/'.$this->thumbnail_image);
+        // Use /api/files/ endpoint (works on App Platform)
+        $baseUrl = rtrim(config('app.url'), '/');
+        return $baseUrl . '/api/files/' . ltrim($this->thumbnail_image, '/');
     }
 
     /**
      * Get full URLs for feature images
+     * Uses /api/files/ endpoint to work on DigitalOcean App Platform
      */
     public function getFeatureImagesUrlsAttribute()
     {
@@ -87,8 +91,9 @@ class Product extends Model
             return [];
         }
 
-        return array_map(function ($image) {
-            return asset('storage/'.$image);
+        $baseUrl = rtrim(config('app.url'), '/');
+        return array_map(function ($image) use ($baseUrl) {
+            return $baseUrl . '/api/files/' . ltrim($image, '/');
         }, $this->feature_images);
     }
 
