@@ -83,14 +83,8 @@ Route::post('/auth/firebase/login', [SignupController::class, 'firebaseLogin']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
-// Test endpoint to verify routing works
-Route::get('/files-test', function() {
-    return response()->json(['message' => 'Files route is working', 'timestamp' => now()]);
-});
-
 // Public file streaming for assets stored in the "public" disk (avoids relying on /storage symlink in App Platform)
-// Must be at the end to avoid conflicts - use explicit catch-all pattern
-Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.+');
+Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.*');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/me', [LoginController::class, 'me']);

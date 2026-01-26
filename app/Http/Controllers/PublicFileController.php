@@ -2,33 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 
 class PublicFileController extends Controller
 {
-    public function show(Request $request, string $path)
+    public function show(string $path)
     {
-        // Decode and clean the path
-        $path = urldecode($path);
+        // Prevent path traversal
         $path = ltrim($path, '/');
-        
-        // Remove query string if present
-        if (($pos = strpos($path, '?')) !== false) {
-            $path = substr($path, 0, $pos);
-        }
-        
-        // Security: prevent path traversal
-        if (str_contains($path, '..') || empty($path)) {
-            abort(404);
+        if (str_contains($path, '..')) {
+            return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
-        // Check if file exists
         if (! Storage::disk('public')->exists($path)) {
-            abort(404);
+            return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
-        // Return the file
         return Storage::disk('public')->response($path, null, [
             'Cache-Control' => 'public, max-age=3600',
         ]);
