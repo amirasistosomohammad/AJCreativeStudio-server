@@ -78,10 +78,10 @@ class ProductController extends Controller
             'on_sale' => 'boolean',
             'category' => 'required|string|max:255',
             'description' => 'required|string',
-            'file' => 'required|file|mimes:xlsx,xls,pdf|max:10240', // Required - Excel or PDF files, Max 10MB (reduced for DigitalOcean)
-            'thumbnail_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:2048', // Max 2MB (reduced for DigitalOcean)
+            'file' => 'nullable|file|mimes:xlsx,xls,pdf|max:20480', // Optional - Excel or PDF files, Max 20MB (can be uploaded separately)
+            'thumbnail_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120', // Max 5MB
             'feature_images' => 'nullable|array',
-            'feature_images.*' => 'image|mimes:jpeg,jpg,png,webp,gif|max:2048', // Max 2MB per image (reduced for DigitalOcean)
+            'feature_images.*' => 'image|mimes:jpeg,jpg,png,webp,gif|max:5120', // Max 5MB per image
             'is_active' => 'boolean',
         ]);
 
@@ -244,10 +244,10 @@ class ProductController extends Controller
             'on_sale' => 'boolean',
             'category' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string', // Allow null/empty; we will fallback to existing
-            'file' => 'nullable|file|mimes:xlsx,xls,pdf|max:10240', // Optional on update - Excel or PDF files, Max 10MB (reduced for DigitalOcean)
-            'thumbnail_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:2048', // Max 2MB (reduced for DigitalOcean)
+            'file' => 'nullable|file|mimes:xlsx,xls,pdf|max:20480', // Optional on update - Excel or PDF files, Max 20MB
+            'thumbnail_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120', // Max 5MB
             'feature_images' => 'nullable|array',
-            'feature_images.*' => 'image|mimes:jpeg,jpg,png,webp,gif|max:2048', // Max 2MB per image (reduced for DigitalOcean)
+            'feature_images.*' => 'image|mimes:jpeg,jpg,png,webp,gif|max:5120', // Max 5MB per image
             'remove_thumbnail' => 'nullable|boolean',
             'remove_feature_images' => 'nullable|array',
             'is_active' => 'boolean',
