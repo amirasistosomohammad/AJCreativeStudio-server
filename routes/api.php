@@ -17,6 +17,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductCollectionController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductFileUploadController;
 use App\Http\Controllers\ProductFaqController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\SignupController;
@@ -120,6 +121,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/products/{id}/download', [ProductController::class, 'downloadFile']);
     Route::get('/products/categories/list', [ProductController::class, 'categories']);
     Route::apiResource('products', ProductController::class)->except(['index']);
+
+    // Chunked product file upload (avoids 413 Content Too Large on platforms with small body limits)
+    Route::post('/products/{product}/file-upload/init', [ProductFileUploadController::class, 'init']);
+    Route::post('/products/{product}/file-upload/chunk', [ProductFileUploadController::class, 'chunk']);
+    Route::post('/products/{product}/file-upload/complete', [ProductFileUploadController::class, 'complete']);
 
     // Product Category Management Routes
     Route::apiResource('product-categories', ProductCategoryController::class);
