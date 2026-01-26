@@ -47,7 +47,8 @@ foreach ($products as $product) {
     }
     
     // Read local file
-    $fileContent = file_get_contents($localFile);
+    $localPath = Storage::disk('public')->path($product->thumbnail_image);
+    $fileContent = file_get_contents($localPath);
     $fileSize = strlen($fileContent);
     $base64Data = base64_encode($fileContent);
     
