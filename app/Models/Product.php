@@ -47,6 +47,12 @@ class Product extends Model
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     * This ensures thumbnail_image_url and feature_images_urls are always included in JSON responses.
+     */
+    protected $appends = ['thumbnail_image_url', 'feature_images_urls'];
+
+    /**
      * Generate slug from title
      */
     public static function createSlug($title)
