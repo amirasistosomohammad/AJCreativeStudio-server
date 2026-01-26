@@ -31,6 +31,10 @@ Route::post('/payments/gcash/create', [PaymentController::class, 'createGcashPay
 Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
+// Public file streaming - MUST be early to avoid route conflicts
+// This route handles all file requests: /api/files/products/thumbnails/image.png
+Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.+');
+
 // Order routes (public for creation, auth required for viewing)
 Route::post('/orders', [OrderController::class, 'store']);
 Route::get('/orders/{id}', [OrderController::class, 'show']);
@@ -82,9 +86,6 @@ Route::post('/auth/firebase/login', [SignupController::class, 'firebaseLogin']);
 // Phase 3: Password reset routes
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
-
-// Public file streaming for assets stored in the "public" disk (avoids relying on /storage symlink in App Platform)
-Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.+');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/me', [LoginController::class, 'me']);
