@@ -9,13 +9,22 @@ use Illuminate\Support\Facades\Storage;
 
 class PublicFileController extends Controller
 {
-    public function show(Request $request, string $path)
+    public function show(Request $request)
     {
-        // Get the full path from the request URI to handle paths with slashes
-        $fullPath = $request->path();
-        // Remove 'api/files/' prefix
-        $path = str_replace('api/files/', '', $fullPath);
+        // Get the full path from the request URI
+        // Request URI: /api/files/products/thumbnails/image.png
+        // We need: products/thumbnails/image.png
+        $uri = $request->getRequestUri();
+        $path = str_replace('/api/files/', '', $uri);
         $path = ltrim($path, '/');
+        
+        // Remove query string if present
+        if (($pos = strpos($path, '?')) !== false) {
+            $path = substr($path, 0, $pos);
+        }
+        
+        // URL decode the path
+        $path = urldecode($path);
         
         // Prevent path traversal
         if (str_contains($path, '..')) {
@@ -24,13 +33,16 @@ class PublicFileController extends Controller
         }
 
         Log::info('PublicFileController: Attempting to serve file', [
-            'request_path' => $request->path(),
-            'route_path' => $path,
+            'uri' => $uri,
+            'path' => $path,
             'exists' => Storage::disk('public')->exists($path),
-            'storage_path' => Storage::disk('public')->path($path),
         ]);
 
         if (! Storage::disk('public')->exists($path)) {
+            Log::warning('PublicFileController: File not found', [
+                'path' => $path,
+                'storage_root' => Storage::disk('public')->path(''),
+            ]);
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
