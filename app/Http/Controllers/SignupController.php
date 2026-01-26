@@ -110,7 +110,7 @@ class SignupController extends Controller
             if ($existingCustomer && ! $this->isCustomerVerified($existingCustomer)) {
                 // Delete old OTPs
                 EmailVerificationOtp::where('customer_id', $existingCustomer->id)->delete();
-
+                
                 // Update customer info
                 $existingCustomer->update([
                     'name' => $request->name,
@@ -118,7 +118,7 @@ class SignupController extends Controller
                     'password' => Hash::make($request->password),
                     'register_status' => 'pending',
                 ]);
-
+                
                 $customer = $existingCustomer;
             } else {
                 // Create new customer
@@ -498,7 +498,7 @@ class SignupController extends Controller
                 $firebase = $this->firebaseFactory();
             } catch (\Throwable $e) {
                 Log::error('Firebase credentials not configured: '.$e->getMessage());
-
+            
                 return response()->json([
                     'success' => false,
                     'message' => 'Firebase is not configured on the server.',
@@ -509,14 +509,14 @@ class SignupController extends Controller
             $auth = $firebase->createAuth();
 
             $idToken = (string) $request->input('id_token');
-
+            
             // Verify the ID token
             $verifiedToken = $auth->verifyIdToken($idToken);
             $uid = $verifiedToken->claims()->get('sub');
             $email = strtolower(trim((string) ($verifiedToken->claims()->get('email') ?? $request->input('email') ?? '')));
             $emailVerified = $verifiedToken->claims()->get('email_verified', false);
             $name = trim((string) ($verifiedToken->claims()->get('name') ?? $request->input('name') ?? ''));
-
+            
             if ($name === '') {
                 $name = trim((string) ($verifiedToken->claims()->get('given_name') ?? ''));
             }
@@ -632,7 +632,7 @@ class SignupController extends Controller
                 $firebase = $this->firebaseFactory();
             } catch (\Throwable $e) {
                 Log::error('Firebase credentials not configured: '.$e->getMessage());
-
+            
                 return response()->json([
                     'success' => false,
                     'message' => 'Firebase is not configured on the server.',
@@ -643,13 +643,13 @@ class SignupController extends Controller
             $auth = $firebase->createAuth();
 
             $idToken = (string) $request->input('id_token');
-
+            
             // Verify the ID token
             $verifiedToken = $auth->verifyIdToken($idToken);
             $uid = $verifiedToken->claims()->get('sub');
             $email = strtolower(trim((string) ($verifiedToken->claims()->get('email') ?? $request->input('email') ?? '')));
             $emailVerified = $verifiedToken->claims()->get('email_verified', false);
-
+            
             if ($email === '') {
                 return response()->json([
                     'success' => false,
@@ -708,7 +708,7 @@ class SignupController extends Controller
 
             // Check account status
             $registerStatus = strtolower(trim((string) ($customer->register_status ?? '')));
-
+            
             if ($registerStatus === 'pending') {
                 return response()->json([
                     'success' => false,
@@ -901,7 +901,7 @@ class SignupController extends Controller
             // Google signup users have a random password they don't know
             // Best practice: Guide them to use Google sign-in instead
             $hasGoogleAuth = ! empty($customer->google_sub);
-
+            
             // If user has Google auth, they should ONLY use Google sign-in
             if ($hasGoogleAuth) {
                 return response()->json([
@@ -910,7 +910,7 @@ class SignupController extends Controller
                     'code' => 'USE_GOOGLE_LOGIN',
                 ], 401);
             }
-
+            
             // Only check password for regular email/password accounts
             if (! Hash::check($request->password, $customer->password)) {
                 return response()->json([
