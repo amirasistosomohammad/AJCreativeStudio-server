@@ -31,6 +31,10 @@ Route::post('/payments/gcash/create', [PaymentController::class, 'createGcashPay
 Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
+// Product images - fetch from database like branding does
+Route::get('/products/{id}/thumbnail', [\App\Http\Controllers\ProductImageController::class, 'thumbnail']);
+Route::get('/products/{id}/feature/{index}', [\App\Http\Controllers\ProductImageController::class, 'feature']);
+
 // Test endpoint to verify route is working
 Route::get('/files-test', function() {
     return response()->json([
