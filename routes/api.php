@@ -32,8 +32,9 @@ Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
 // Product images - fetch from database like branding does
-Route::get('/products/{id}/thumbnail', [\App\Http\Controllers\ProductImageController::class, 'thumbnail']);
-Route::get('/products/{id}/feature/{index}', [\App\Http\Controllers\ProductImageController::class, 'feature']);
+// MUST be before other /products/{id} routes to avoid conflicts
+Route::get('/products/{id}/thumbnail', [\App\Http\Controllers\ProductImageController::class, 'thumbnail'])->where('id', '[0-9]+');
+Route::get('/products/{id}/feature/{index}', [\App\Http\Controllers\ProductImageController::class, 'feature'])->where('id', '[0-9]+')->where('index', '[0-9]+');
 
 // Test endpoint to verify route is working
 Route::get('/files-test', function() {

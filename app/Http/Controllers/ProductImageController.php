@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ProductImageController extends Controller
@@ -16,13 +17,32 @@ class ProductImageController extends Controller
     {
         $product = Product::find($id);
         
-        if (!$product || !$product->thumbnail_image) {
+        if (!$product) {
+            Log::warning('ProductImageController: Product not found', ['id' => $id]);
+            return response()->noContent(Response::HTTP_NOT_FOUND);
+        }
+        
+        if (!$product->thumbnail_image) {
+            Log::warning('ProductImageController: No thumbnail path in database', ['id' => $id, 'product' => $product->title]);
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
         $path = $product->thumbnail_image;
         
+        Log::info('ProductImageController: Attempting to serve thumbnail', [
+            'product_id' => $id,
+            'product_title' => $product->title,
+            'path' => $path,
+            'exists' => Storage::disk('public')->exists($path),
+            'storage_root' => Storage::disk('public')->path(''),
+        ]);
+        
         if (! Storage::disk('public')->exists($path)) {
+            Log::warning('ProductImageController: File not found in storage', [
+                'product_id' => $id,
+                'path' => $path,
+                'full_path' => Storage::disk('public')->path($path),
+            ]);
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
