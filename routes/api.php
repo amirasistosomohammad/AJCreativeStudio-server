@@ -32,6 +32,7 @@ Route::get('/branding', [BrandingController::class, 'show']);
 Route::get('/branding/logo', [BrandingController::class, 'logo']);
 
 // Serve storage files (fallback if symlink doesn't work on DigitalOcean)
+// Handles both local storage and S3/Spaces
 Route::get('/storage/{path}', function ($path) {
     $path = urldecode($path);
     $disk = config('products.storage_disk', 'public');
@@ -41,13 +42,23 @@ Route::get('/storage/{path}', function ($path) {
         abort(404);
     }
     
+    $storage = \Illuminate\Support\Facades\Storage::disk($disk);
+    
     // Check if file exists in storage
-    if (!\Illuminate\Support\Facades\Storage::disk($disk)->exists($path)) {
+    if (!$storage->exists($path)) {
         abort(404);
     }
     
-    // Return the file
-    return \Illuminate\Support\Facades\Storage::disk($disk)->response($path, null, [
+    // For S3/Spaces, redirect to the public URL (more efficient than streaming through Laravel)
+    if ($disk === 's3') {
+        $url = $storage->url($path);
+        return redirect($url, 302, [
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+    }
+    
+    // For local storage, stream the file
+    return $storage->response($path, null, [
         'Cache-Control' => 'public, max-age=3600',
     ]);
 })->where('path', '.*');

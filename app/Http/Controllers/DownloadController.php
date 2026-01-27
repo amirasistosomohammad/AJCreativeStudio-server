@@ -81,11 +81,16 @@ class DownloadController extends Controller
             ], 404);
         }
 
+        // Use configurable storage disk
+        $disk = config('products.storage_disk', 'public');
+        $storage = Storage::disk($disk);
+
         // Check if file exists
-        if (!Storage::disk('public')->exists($product->file_path)) {
+        if (!$storage->exists($product->file_path)) {
             Log::error('File not found on storage', [
                 'token' => $token,
                 'file_path' => $product->file_path,
+                'disk' => $disk,
             ]);
 
             return response()->json([
@@ -105,14 +110,18 @@ class DownloadController extends Controller
             'download_count' => $download->download_count,
         ]);
 
-        // Get file path and name
-        $filePath = Storage::disk('public')->path($product->file_path);
         $fileName = $product->file_name ?: basename($product->file_path);
-
-        // Determine content type based on file extension
         $contentType = $this->getContentType($fileName);
 
-        // Return file download response
+        // For S3/Spaces, use temporary signed URL or stream
+        if ($disk === 's3') {
+            // Generate a temporary signed URL (valid for 1 hour)
+            $url = $storage->temporaryUrl($product->file_path, now()->addHour());
+            return redirect($url);
+        }
+
+        // For local storage, use file download
+        $filePath = $storage->path($product->file_path);
         return response()->download($filePath, $fileName, [
             'Content-Type' => $contentType,
         ]);
