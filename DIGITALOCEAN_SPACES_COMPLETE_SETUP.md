@@ -23,7 +23,7 @@
 2. **Click "Create a Space"**
 
 3. **Configure your Space:**
-   - **Name**: `ajcreativestudio-files` (must be globally unique, lowercase, no spaces)
+   - **Name**: `` (must be globally unique, lowercase, no spaces)
    - **Region**: Choose the **same region** as your App Platform app
      - Common regions: `nyc3` (New York), `sgp1` (Singapore), `ams3` (Amsterdam), `sfo3` (San Francisco)
      - **How to find your app region**: App Platform → Your App → Settings → Region
