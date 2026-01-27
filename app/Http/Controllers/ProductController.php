@@ -377,8 +377,14 @@ class ProductController extends Controller
                 $newFeatureImages[] = $imagePath;
             }
             
-            // Merge remaining images (after removal) with new ones
-            $currentFeatureImages = array_merge($currentFeatureImages, $newFeatureImages);
+            // Merge remaining images (after removal) with new ones, avoiding duplicates
+            $existingPaths = array_map('strval', $currentFeatureImages);
+            foreach ($newFeatureImages as $newPath) {
+                if (!in_array($newPath, $existingPaths, true)) {
+                    $currentFeatureImages[] = $newPath;
+                    $existingPaths[] = $newPath;
+                }
+            }
         }
         
         // Only set feature_images if we've made changes
