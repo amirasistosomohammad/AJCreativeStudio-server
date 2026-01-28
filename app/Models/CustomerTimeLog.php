@@ -9,13 +9,7 @@ class CustomerTimeLog extends Model
 {
     use HasFactory;
 
-    /**
-     * Note: Using 'customer_time_logs_new' due to MySQL tablespace corruption issue.
-     * The original 'customer_time_logs' table had a corrupted .ibd file that prevents
-     * table creation. To fix permanently, delete the .ibd file from MySQL data directory
-     * and change this back to 'customer_time_logs'.
-     */
-    protected $table = 'customer_time_logs_new';
+    protected $table = 'customer_time_logs';
 
     protected $fillable = [
         'customer_id',
