@@ -42,7 +42,7 @@ Route::get('/storage/{path}', function ($path) {
             if ($bucket && $region) {
                 $url = "https://{$bucket}.{$region}.cdn.digitaloceanspaces.com/" . ltrim($path, '/');
             } else {
-                $url = $storage->url($path);
+        $url = $storage->url($path);
             }
         }
         // Use 307 (temporary redirect) instead of 302 to prevent browser caching old redirects
