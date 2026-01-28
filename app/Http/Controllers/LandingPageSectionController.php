@@ -9,6 +9,27 @@ use Illuminate\Support\Facades\Validator;
 
 class LandingPageSectionController extends Controller
 {
+    private function resolveProductCollection(?string $value): ?ProductCollection
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (ctype_digit($trimmed)) {
+            return ProductCollection::query()->whereKey((int) $trimmed)->first();
+        }
+
+        return ProductCollection::query()
+            ->where('slug', $trimmed)
+            ->orWhere('name', $trimmed)
+            ->first();
+    }
+
     /**
      * Display a listing of sections
      */
@@ -139,7 +160,7 @@ class LandingPageSectionController extends Controller
 
         // Validate source_value for product_grid sections - must be a valid collection
         if ($request->section_type === 'product_grid' && $request->has('source_value')) {
-            $collection = ProductCollection::where('slug', $request->source_value)->first();
+            $collection = $this->resolveProductCollection($request->source_value);
             if (! $collection) {
                 return response()->json([
                     'success' => false,
@@ -218,7 +239,7 @@ class LandingPageSectionController extends Controller
         // Validate source_value for product_grid sections - must be a valid collection
         if ($request->has('section_type') && $request->section_type === 'product_grid' && $request->has('source_value')) {
             $sourceValue = $request->source_value ?? $landingPageSection->source_value;
-            $collection = ProductCollection::where('slug', $sourceValue)->first();
+            $collection = $this->resolveProductCollection($sourceValue);
             if (! $collection) {
                 return response()->json([
                     'success' => false,

@@ -42,11 +42,19 @@ class LandingPageSection extends Model
      */
     public function getProducts()
     {
-        $collection = ProductCollection::where('slug', $this->source_value)
-            ->where('is_active', true)
-            ->first();
+        $sourceValue = is_string($this->source_value) ? trim($this->source_value) : null;
 
-        if (!$collection) {
+        $collectionQuery = ProductCollection::query()->where('is_active', true);
+
+        if ($sourceValue && ctype_digit($sourceValue)) {
+            $collectionQuery->whereKey((int) $sourceValue);
+        } else {
+            $collectionQuery->where('slug', $sourceValue);
+        }
+
+        $collection = $collectionQuery->first();
+
+        if (! $collection) {
             return collect([]);
         }
 
