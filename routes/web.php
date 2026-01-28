@@ -25,9 +25,19 @@ Route::get('/storage/{path}', function ($path) {
         abort(404);
     }
     
-    // For S3/Spaces, redirect to the public URL (more efficient than streaming through Laravel)
+    // For S3/Spaces, redirect to the CDN URL (more efficient than streaming through Laravel)
     if ($disk === 's3') {
-        $url = $storage->url($path);
+        // Use AWS_URL (CDN endpoint) if set, otherwise fall back to Storage::url()
+        $cdnUrl = config('filesystems.disks.s3.url');
+        if ($cdnUrl) {
+            // Ensure CDN URL doesn't end with slash
+            $cdnUrl = rtrim($cdnUrl, '/');
+            // Ensure path doesn't start with slash
+            $cleanPath = ltrim($path, '/');
+            $url = $cdnUrl . '/' . $cleanPath;
+        } else {
+            $url = $storage->url($path);
+        }
         return redirect($url, 302, [
             'Cache-Control' => 'public, max-age=3600',
         ]);

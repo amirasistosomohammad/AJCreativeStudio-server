@@ -11,7 +11,7 @@ class ProductImageController extends Controller
 {
     /**
      * Serve product thumbnail image by product ID
-     * Similar to how branding logo works
+     * Uses configured storage disk (s3 for Spaces, public for local)
      */
     public function thumbnail($id)
     {
@@ -25,56 +25,45 @@ class ProductImageController extends Controller
             return response()->json(['error' => 'No thumbnail path in database'], 404);
         }
 
+        $disk = config('products.storage_disk', 'public');
         $path = $product->thumbnail_image;
         
-        // Try multiple possible locations
-        $possiblePaths = [
-            $path,
-            'public/' . $path,
-            'storage/app/public/' . $path,
-            ltrim($path, '/'),
-        ];
+        // Clean up path (remove leading slashes, storage/ prefix if present)
+        $path = ltrim($path, '/');
+        $path = preg_replace('#^storage/#', '', $path);
+        $path = preg_replace('#^public/#', '', $path);
         
-        $foundPath = null;
-        foreach ($possiblePaths as $tryPath) {
-            if (Storage::disk('public')->exists($tryPath)) {
-                $foundPath = $tryPath;
-                break;
-            }
-        }
+        $storage = Storage::disk($disk);
         
-        // Also try direct file system check
-        if (!$foundPath) {
-            $storageRoot = Storage::disk('public')->path('');
-            $directPath = $storageRoot . '/' . ltrim($path, '/');
-            if (file_exists($directPath)) {
-                $foundPath = $path;
-            }
-        }
-        
-        if (!$foundPath) {
-            // Check what files actually exist
-            $allFiles = Storage::disk('public')->allFiles('products/thumbnails');
-            $storageRoot = Storage::disk('public')->path('');
-            
+        // Check if file exists
+        if (!$storage->exists($path)) {
             return response()->json([
-                'error' => 'File not found in any location',
+                'error' => 'File not found',
                 'product_id' => $id,
                 'product_title' => $product->title,
-                'database_path' => $path,
-                'storage_root' => $storageRoot,
-                'files_in_thumbnails' => array_slice($allFiles, 0, 20),
-                'total_files' => count($allFiles),
+                'database_path' => $product->thumbnail_image,
+                'checked_path' => $path,
+                'storage_disk' => $disk,
             ], 404);
         }
 
-        return Storage::disk('public')->response($foundPath, null, [
+        // For S3/Spaces, redirect to the CDN URL (more efficient)
+        if ($disk === 's3') {
+            $url = $storage->url($path);
+            return redirect($url, 302, [
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
+        }
+
+        // For local storage, stream the file
+        return $storage->response($path, null, [
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
 
     /**
      * Serve product feature image by product ID and index
+     * Uses configured storage disk (s3 for Spaces, public for local)
      */
     public function feature($id, $index = 0)
     {
@@ -92,13 +81,32 @@ class ProductImageController extends Controller
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
+        $disk = config('products.storage_disk', 'public');
         $path = $featureImages[$index];
         
-        if (! Storage::disk('public')->exists($path)) {
+        // Clean up path (remove leading slashes, storage/ prefix if present)
+        if (is_string($path)) {
+            $path = ltrim($path, '/');
+            $path = preg_replace('#^storage/#', '', $path);
+            $path = preg_replace('#^public/#', '', $path);
+        }
+        
+        $storage = Storage::disk($disk);
+        
+        if (!$storage->exists($path)) {
             return response()->noContent(Response::HTTP_NOT_FOUND);
         }
 
-        return Storage::disk('public')->response($path, null, [
+        // For S3/Spaces, redirect to the CDN URL (more efficient)
+        if ($disk === 's3') {
+            $url = $storage->url($path);
+            return redirect($url, 302, [
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
+        }
+
+        // For local storage, stream the file
+        return $storage->response($path, null, [
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
