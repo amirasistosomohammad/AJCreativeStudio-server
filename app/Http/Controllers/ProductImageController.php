@@ -109,8 +109,8 @@ class ProductImageController extends Controller
 
         // For S3/Spaces, redirect to the CDN URL (more efficient)
         if ($disk === 's3') {
-            // Use AWS_URL (CDN endpoint) if set, otherwise fall back to Storage::url()
-            $cdnUrl = config('filesystems.disks.s3.url');
+            // Use AWS_URL (CDN endpoint) - read directly from env to avoid config cache issues
+            $cdnUrl = env('AWS_URL') ?: config('filesystems.disks.s3.url');
             if ($cdnUrl) {
                 // Ensure CDN URL doesn't end with slash
                 $cdnUrl = rtrim($cdnUrl, '/');
@@ -118,7 +118,14 @@ class ProductImageController extends Controller
                 $cleanPath = ltrim($path, '/');
                 $url = $cdnUrl . '/' . $cleanPath;
             } else {
-                $url = $storage->url($path);
+                // Fallback: construct CDN URL from bucket and region if AWS_URL not set
+                $bucket = env('AWS_BUCKET') ?: config('filesystems.disks.s3.bucket');
+                $region = env('AWS_DEFAULT_REGION') ?: config('filesystems.disks.s3.region');
+                if ($bucket && $region) {
+                    $url = "https://{$bucket}.{$region}.cdn.digitaloceanspaces.com/" . ltrim($path, '/');
+                } else {
+                    $url = $storage->url($path);
+                }
             }
             return redirect($url, 302, [
                 'Cache-Control' => 'public, max-age=3600',
