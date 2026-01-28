@@ -45,8 +45,11 @@ Route::get('/storage/{path}', function ($path) {
                 $url = $storage->url($path);
             }
         }
-        return redirect($url, 302, [
-            'Cache-Control' => 'public, max-age=3600',
+        // Use 307 (temporary redirect) instead of 302 to prevent browser caching old redirects
+        return redirect($url, 307, [
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
     
