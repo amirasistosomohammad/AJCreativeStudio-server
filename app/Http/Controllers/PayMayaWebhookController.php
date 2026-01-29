@@ -208,6 +208,16 @@ class PayMayaWebhookController extends Controller
 
         // Handle different webhook event types
         try {
+            // If we've already sent the confirmation email, don't send again
+            if ($order->confirmation_email_sent_at) {
+                Log::info('Order confirmation email already sent (flag on order)', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'confirmation_email_sent_at' => $order->confirmation_email_sent_at,
+                ]);
+
+                return;
+            }
             switch ($webhookType) {
                 case 'payment.success':
                 case 'payment.paid':
@@ -569,6 +579,11 @@ class PayMayaWebhookController extends Controller
             
             // Mark as sent in cache (expires in 5 minutes to prevent duplicates)
             Cache::put($cacheKey, true, now()->addMinutes(5));
+
+            // Persist that we've sent the confirmation email
+            $order->update([
+                'confirmation_email_sent_at' => now(),
+            ]);
             
             Log::info('Order confirmation email sent', [
                 'order_id' => $order->id,

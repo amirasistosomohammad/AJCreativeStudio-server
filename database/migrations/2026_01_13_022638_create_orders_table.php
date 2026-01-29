@@ -30,6 +30,7 @@ return new class extends Migration
             $table->string('payment_gateway_id')->nullable()->comment('PayMaya checkout ID');
             $table->string('payment_gateway_transaction_id')->nullable()->comment('PayMaya payment/transaction ID');
             $table->timestamp('paid_at')->nullable();
+            $table->timestamp('confirmation_email_sent_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->timestamps();

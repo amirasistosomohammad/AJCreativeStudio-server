@@ -29,6 +29,7 @@ class Order extends Model
         'paid_at',
         'completed_at',
         'cancelled_at',
+        'confirmation_email_sent_at',
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class Order extends Model
         'paid_at' => 'datetime',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'confirmation_email_sent_at' => 'datetime',
     ];
 
     /**
