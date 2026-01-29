@@ -113,11 +113,33 @@ class DownloadController extends Controller
         $fileName = $product->file_name ?: basename($product->file_path);
         $contentType = $this->getContentType($fileName);
 
-        // For S3/Spaces, use temporary signed URL or stream
+        // For S3/Spaces, redirect to CDN URL (same pattern as /api/storage route)
         if ($disk === 's3') {
-            // Generate a temporary signed URL (valid for 1 hour)
-            $url = $storage->temporaryUrl($product->file_path, now()->addHour());
-            return redirect($url);
+            $path = $product->file_path;
+
+            // Use AWS_URL (CDN endpoint) if available
+            $cdnUrl = env('AWS_URL') ?: config('filesystems.disks.s3.url');
+            if ($cdnUrl) {
+                $cdnUrl = rtrim($cdnUrl, '/');
+                $cleanPath = ltrim($path, '/');
+                $url = $cdnUrl.'/'.$cleanPath;
+            } else {
+                // Fallback: construct CDN URL from bucket and region
+                $bucket = env('AWS_BUCKET') ?: config('filesystems.disks.s3.bucket');
+                $region = env('AWS_DEFAULT_REGION') ?: config('filesystems.disks.s3.region');
+                if ($bucket && $region) {
+                    $url = "https://{$bucket}.{$region}.cdn.digitaloceanspaces.com/".ltrim($path, '/');
+                } else {
+                    // Last-resort fallback: use disk URL
+                    $url = $storage->url($path);
+                }
+            }
+
+            return redirect($url, 307, [
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+            ]);
         }
 
         // For local storage, use file download
